@@ -1,4 +1,7 @@
 #!/usr/bin/env sh
+# get-github-release v0.1.0
+# A utility script to download the latest github release for a public github repo
+
 shopt -s nocasematch
 
 GITHUB_REPO=$1
@@ -63,4 +66,3 @@ print "Found ${DL_URL_COUNT} matching download(s) at ${DOWNLOAD_URL}"
 print "Saving archive to '${DEST_PATH}'"
 $(cd "${DEST_PATH}" && curl -O ${DOWNLOAD_URL})
 
-# curl -s https://api.github.com/repos/gesquive/gop/releases/latest | grep browser_download_url | grep -i ".*linux-amd64.tar.gz" | cut -d '"' -f 4
