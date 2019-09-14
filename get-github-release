@@ -1,0 +1,66 @@
+#!/usr/bin/env sh
+shopt -s nocasematch
+
+GITHUB_REPO=$1
+DEST_PATH=${2:-.}
+
+LATEST_URL="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
+VERBOSE=true
+
+print() {
+    if ${VERBOSE}; then
+        printf "$*\n"
+    fi
+}
+
+# First, query github for the latest release info
+RELEASES=$(curl -sf ${LATEST_URL})
+# check if curl got back a 404
+RELEASE_STATUS="$?"
+if  [ ! ${RELEASE_STATUS} -eq 0 ]; then
+    print "Could not locate releases for '${GITHUB_REPO}', make sure it exists"
+    exit 1
+fi
+
+OS=$(uname -s)
+ARCH=$(uname -m)
+
+OS_DARWIN_RE="darwin|osx|mac"
+OS_LINUX_RE="linux"
+
+ARCH_64_RE="amd64|x64|x86_64"
+ARCH_32_RE="i?386|x32|i?686"
+
+if [[ $OS =~ $OS_LINUX_RE ]]; then
+    OS_RE=$OS_LINUX_RE
+elif [[ $OS =~ $OS_DARWIN_RE ]]; then
+    OS_RE=$OS_DARWIN_RE
+fi
+
+if [[ $ARCH =~ $ARCH_64_RE ]]; then
+    ARCH_RE=$ARCH_64_RE
+elif [[ $ARCH =~ $ARCH_32_RE ]]; then
+    ARCH_RE=$ARCH_32_RE
+fi
+
+SEARCH_RE=".*(${OS_RE}).*(${ARCH_RE}).*"
+
+DOWNLOAD_URL=$(echo "${RELEASES}" | grep "browser_download_url" | grep -iE "${SEARCH_RE}" | cut -d '"' -f 4)
+
+# check if any url was found or if more then one was found
+DL_URL_COUNT=$(printf "%s" "${DOWNLOAD_URL}" | grep -c "^")
+if [ ${DL_URL_COUNT} -eq 0 ]; then
+    print "No matching releases were found"
+    exit 2
+elif [ ${DL_URL_COUNT} -gt 1 ]; then
+    print "Too many matching releases"
+    exit 3
+fi
+
+print "Found ${DL_URL_COUNT} matching download(s) at ${DOWNLOAD_URL}"
+
+# download the archive
+print "Saving archive to '${DEST_PATH}'"
+$(cd "${DEST_PATH}" && curl -O ${DOWNLOAD_URL})
+
+# curl -s https://api.github.com/repos/gesquive/gop/releases/latest | grep browser_download_url | grep -i ".*linux-amd64.tar.gz" | cut -d '"' -f 4
