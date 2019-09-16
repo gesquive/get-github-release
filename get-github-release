@@ -17,8 +17,8 @@ print() {
 }
 
 # First, query github for the latest release info
-RELEASES=$(curl -sf ${LATEST_URL})
-# check if curl got back a 404
+RELEASES=$(wget -qO- ${LATEST_URL})
+# check if we got back a 404
 RELEASE_STATUS="$?"
 if  [ ! ${RELEASE_STATUS} -eq 0 ]; then
     print "Could not locate releases for '${GITHUB_REPO}', make sure it exists"
@@ -64,5 +64,5 @@ print "Found ${DL_URL_COUNT} matching download(s) at ${DOWNLOAD_URL}"
 
 # download the archive
 print "Saving archive to '${DEST_PATH}'"
-$(cd "${DEST_PATH}" && curl -O ${DOWNLOAD_URL})
+$(cd "${DEST_PATH}" && wget -q --show-progress ${DOWNLOAD_URL})
 
