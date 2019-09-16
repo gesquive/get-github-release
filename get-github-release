@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 # get-github-release v0.1.0
 # A utility script to download the latest github release for a public github repo
 
