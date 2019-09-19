@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 # get-github-release
-# A utility script to download the latest github release for a public github repo
+# https://github.com/gesquive/get-github-release
 
 shopt -s nocasematch
 
-VERSION="v0.1.3"
+VERSION="v1.0.0"
 VERBOSE=true
+DEST="."
+RELEASE_TAG="latest"
 
 CURL=${CURL:-curl}
+MKTMP=${MKTMP:-mktemp}
+TR=${TR:-tr}
 
 function usage() {
     echo "Utility script to download a github release from a public github repo"
@@ -19,6 +23,7 @@ function usage() {
     echo "  -q, --quiet     Silence all output"
     echo "  -d, --dest      The destination path & name (default:PWD)"
     echo "  -t, --tag       The tag name to download (default:latest)"
+    echo "  -e, --extract   The file to extract and save, this must match the name in the archive"
     echo "  -h, --help      Show this help and exit"
     echo "  --version       Show the version and exit"
     exit 1;
@@ -29,12 +34,13 @@ function version() {
     exit 1
 }
 
-while getopts 'vq:d:th-' OPTION ; do
+while getopts 'vq:d:t:e:h-' OPTION ; do
   case "$OPTION" in
     v  ) VERBOSE=true                   ;;
     q  ) VERBOSE=false                  ;;
     d  ) DEST="${OPTARG}"               ;;
     t  ) RELEASE_TAG="${OPTARG}"        ;;
+    e  ) EXTRACT="${OPTARG}"            ;;
     h  ) usage                          ;;
     -  ) [ $OPTIND -ge 1 ] && optind=$(expr $OPTIND - 1 ) || optind=$OPTIND
          eval OPTION="\$$optind"
@@ -45,6 +51,7 @@ while getopts 'vq:d:th-' OPTION ; do
              --quiet     ) VERBOSE=false            ;;
              --dest      ) DEST="${OPTARG}"         ;;
              --tag       ) RELEASE_TAG="${OPTARG}"  ;;
+             --extract   ) EXTRACT="${OPTARG}"      ;;
              --help      ) usage                    ;;
              --version   ) version                  ;;
              * )  usage                             ;;
@@ -55,30 +62,39 @@ while getopts 'vq:d:th-' OPTION ; do
     ? )  usage                          ;;
   esac
 done
+if [ $(( $# - $OPTIND )) -lt 0 ]; then
+    usage
+    exit 1
+fi
 
+# positional repo argument
 REPO=${*:$OPTIND:1}
-REPO=${REPO:-noop}
 
-DEST=${DEST:-.}
-RELEASE_TAG=${RELEASE_TAG:-latest}
-
-
-print() {
+function print() {
     if ${VERBOSE}; then
         printf "$*\n"
     fi
 }
 
-perr() {
+function perr() {
     printf "$*\n" >&2
 }
+function check() {
+    if ! type "$1" &> /dev/null; then
+        return 1;
+    fi
+    return 0
+}
+function check_fatal() {
+    if ! check $1; then
+        perr "$1 not found! Make sure it is installed."
+        exit 2
+    fi
+}
 
-which ${CURL} >/dev/null
-if [ $? -eq 1 ]; then
-    perr "${CURL} not found! Make sure it is installed."
-    exit 2
-fi
-
+check_fatal ${CURL}
+check_fatal ${MKTMP}
+check_fatal ${TR}
 
 LATEST_URL="https://api.github.com/repos/${REPO}/releases/${RELEASE_TAG}"
 
@@ -88,6 +104,7 @@ RELEASES=$(${CURL} -sfL ${LATEST_URL})
 RELEASE_STATUS="$?"
 if  [ ! ${RELEASE_STATUS} -eq 0 ]; then
     perr "Could not locate releases for '${REPO}:${RELEASE_TAG}', make sure it exists"
+    print ${LATEST_URL}
     exit 1
 fi
 
@@ -128,13 +145,57 @@ fi
 
 print "Found ${DL_URL_COUNT} matching download(s) at ${DOWNLOAD_URL}"
 
-# download the archive
-OUTARG=""
-if [ ! -z "${DEST}" ]; then
-    OUTARG=" -o ${DEST}"
+if [ ! -z "${EXTRACT}" ]; then
+    TMP=$(${MKTMP} -d)
+    ARCHIVE="${DOWNLOAD_URL##*/}"
+    WKDIR=${PWD}
+    cd "${TMP}"
+    ${CURL} -O -L ${DOWNLOAD_URL}
+    DL_STATUS="$?"
+    if  [ ! ${DL_STATUS} -eq 0 ]; then
+        perr "Failed to download package from '${DOWNLOAD_URL}'."
+        exit 10
+    fi
+    NAME=$(echo "${ARCHIVE}" | ${TR} '[:upper:]' '[:lower:]')
+    case "${NAME}" in
+        *.tar.bz)   tar -xjf "${ARCHIVE}" "${EXTRACT}" ;;
+        *.tar.bz2)  tar -xjf "${ARCHIVE}" "${EXTRACT}" ;;
+        *.tar.gz)   tar -xzf "${ARCHIVE}" "${EXTRACT}" ;;
+        *.tar.xz)   tar -xJf "${ARCHIVE}" "${EXTRACT}" ;;
+        *.lzma)     xz -dfk "${ARCHIVE}" "${EXTRACT}" ;;
+        *.pxz)      xz -dfk "${ARCHIVE}" "${EXTRACT}" ;;
+        *.tar)      tar -xf "${ARCHIVE}" "${EXTRACT}" ;;
+        *.tbz)      tar -xjf "${ARCHIVE}" "${EXTRACT}" ;;
+        *.tbz2)     tar -xjf "${ARCHIVE}" "${EXTRACT}" ;;
+        *.tz2)      tar -xjf "${ARCHIVE}" "${EXTRACT}" ;;
+        *.tgz)      tar -xzf "${ARCHIVE}" "${EXTRACT}" ;;
+        *.txz)      tar -xJf "${ARCHIVE}" "${EXTRACT}" ;;
+        *.xz)       xz -dfk "${ARCHIVE}" "${EXTRACT}" ;;
+        *.zip)      unzip -p "${ARCHIVE}" "${EXTRACT}" >"${EXTRACT##*/}" ;;
+        *.7z)       7z x "${ARCHIVE}" "${EXTRACT}" ;;
+        *) perr "extract: '${ARCHIVE}' - unknown archive method" ;;
+    esac
+    cd ${WKDIR}
+    mv "${TMP}/${EXTRACT}" "${DEST}"
+    rm -rf "${TMP}"
+    exit
+
+else # download the archive
+    OUTARG=""
+    if [ ! -z "${DEST}" ]; then
+        OUTARG=" -o ${DEST}"
+    fi
+    if [ -d "${DEST}" ]; then
+        OUTARG=" -O ${OUTARG}"
+    fi
+    print "Saving archive to '${DEST}'"
+    ${CURL}${OUTARG} -L ${DOWNLOAD_URL}
+
+    DL_STATUS="$?"
+    if  [ ! ${DL_STATUS} -eq 0 ]; then
+        perr "Failed to download package from '${DOWNLOAD_URL}'."
+        exit 10
+    fi
 fi
-if [ -d "${DEST}" ]; then
-    OUTARG=" -O ${OUTARG}"
-fi
-print "Saving archive to '${DEST}'"
-$(${CURL}${OUTARG} -L ${DOWNLOAD_URL})
+
+
