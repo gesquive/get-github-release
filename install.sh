@@ -5,5 +5,10 @@ set -e
 DL_URL="https://raw.githubusercontent.com/gesquive/get-github-release/master/get-github-release.sh"
 OUTPATH="/usr/local/bin/get-github-release"
 
-curl -o ${OUTPATH} -sfL ${DL_URL}
-chmod +x ${OUTPATH}
+if [ "$1" == "local" ]; then # local install
+    cp get-github-release.sh "${OUTPATH}"
+else # internet install
+    curl -sfL ${DL_URL} -o "${OUTPATH}"
+fi
+
+chmod +x "${OUTPATH}"

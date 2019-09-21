@@ -11,6 +11,9 @@ The easiest way to install is run in a terminal:
 ```
 make sure the user has write permissions to `/usr/local/bin`.
 
+### Git Install
+After checking out the git repo, run `install.sh local`
+
 ### Manual Download
 You can download it directly from [github](https://raw.githubusercontent.com/gesquive/get-github-release/master/get-github-release.sh). or run `wget https://raw.githubusercontent.com/gesquive/get-github-release/master/get-github-release.sh`.
 
