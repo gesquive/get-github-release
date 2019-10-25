@@ -4,7 +4,7 @@
 
 shopt -s nocasematch
 
-VERSION="v1.0.0"
+VERSION="v1.0.1"
 VERBOSE=true
 DEST="."
 RELEASE_TAG="latest"
@@ -114,8 +114,9 @@ ARCH=$(uname -m)
 OS_DARWIN_RE="darwin|osx|mac"
 OS_LINUX_RE="linux"
 
-ARCH_64_RE="amd64|x64|x86_64"
-ARCH_32_RE="i?386|x32|i?686"
+ARCH_X64_RE="amd64|x64|x86_64"
+ARCH_X32_RE="i?386|x32|i?686"
+ARCH_A64_RE="arm64|aarch|armv8"
 
 if [[ $OS =~ $OS_LINUX_RE ]]; then
     OS_RE=$OS_LINUX_RE
@@ -123,10 +124,12 @@ elif [[ $OS =~ $OS_DARWIN_RE ]]; then
     OS_RE=$OS_DARWIN_RE
 fi
 
-if [[ $ARCH =~ $ARCH_64_RE ]]; then
-    ARCH_RE=$ARCH_64_RE
-elif [[ $ARCH =~ $ARCH_32_RE ]]; then
-    ARCH_RE=$ARCH_32_RE
+if [[ $ARCH =~ $ARCH_X64_RE ]]; then
+    ARCH_RE=$ARCH_X64_RE
+elif [[ $ARCH =~ $ARCH_X32_RE ]]; then
+    ARCH_RE=$ARCH_X32_RE
+elif [[ $ARCH =~ $ARCH_A64_RE ]]; then
+    ARCH_RE=$ARCH_A64_RE
 fi
 
 SEARCH_RE=".*(${OS_RE}).*(${ARCH_RE}).*"
@@ -136,10 +139,10 @@ DOWNLOAD_URL=$(echo "${RELEASES}" | grep "browser_download_url" | grep -iE "${SE
 # check if any url was found or if more then one was found
 DL_URL_COUNT=$(printf "%s" "${DOWNLOAD_URL}" | grep -c "^")
 if [ ${DL_URL_COUNT} -eq 0 ]; then
-    perr "No matching releases were found"
+    perr "No matching releases were found ($OS/$ARCH)"
     exit 2
 elif [ ${DL_URL_COUNT} -gt 1 ]; then
-    perr "Too many matching releases"
+    perr "Too many matching releases ($OS/$ARCH)"
     exit 3
 fi
 
