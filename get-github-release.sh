@@ -4,7 +4,7 @@
 
 shopt -s nocasematch
 
-VERSION="v1.0.1"
+VERSION="v1.0.2"
 VERBOSE=true
 DEST="."
 RELEASE_TAG="latest"
@@ -114,9 +114,11 @@ ARCH=$(uname -m)
 OS_DARWIN_RE="darwin|osx|mac"
 OS_LINUX_RE="linux"
 
+# A good reference: https://stackoverflow.com/a/45125525/613218
 ARCH_X64_RE="amd64|x64|x86_64"
 ARCH_X32_RE="i?386|x32|i?686"
 ARCH_A64_RE="arm64|aarch|armv8"
+ARCH_A32_RE="armv"
 
 if [[ $OS =~ $OS_LINUX_RE ]]; then
     OS_RE=$OS_LINUX_RE
@@ -130,6 +132,8 @@ elif [[ $ARCH =~ $ARCH_X32_RE ]]; then
     ARCH_RE=$ARCH_X32_RE
 elif [[ $ARCH =~ $ARCH_A64_RE ]]; then
     ARCH_RE=$ARCH_A64_RE
+elif [[ $ARCH =~ $ARCH_A32_RE ]]; then
+    ARCH_RE=$ARCH_A32_RE
 fi
 
 SEARCH_RE=".*(${OS_RE}).*(${ARCH_RE}).*"
