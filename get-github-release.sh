@@ -8,6 +8,7 @@ VERSION="v1.0.2"
 VERBOSE=true
 DEST="."
 RELEASE_TAG="latest"
+GET_URL=false
 
 CURL=${CURL:-curl}
 MKTMP=${MKTMP:-mktemp}
@@ -23,6 +24,7 @@ function usage() {
     echo "  -q, --quiet     Silence all output"
     echo "  -d, --dest      The destination path & name (default:PWD)"
     echo "  -t, --tag       The tag name to download (default:latest)"
+    echo "  -g, --get-url   Just print the URL and exit"
     echo "  -e, --extract   The file to extract and save, this must match the name in the archive"
     echo "  -h, --help      Show this help and exit"
     echo "  --version       Show the version and exit"
@@ -34,12 +36,13 @@ function version() {
     exit 1
 }
 
-while getopts 'vq:d:t:e:h-' OPTION ; do
+while getopts 'vqd:t:ge:h-' OPTION ; do
   case "$OPTION" in
     v  ) VERBOSE=true                   ;;
     q  ) VERBOSE=false                  ;;
     d  ) DEST="${OPTARG}"               ;;
     t  ) RELEASE_TAG="${OPTARG}"        ;;
+    g  ) GET_URL=true                   ;;
     e  ) EXTRACT="${OPTARG}"            ;;
     h  ) usage                          ;;
     -  ) [ $OPTIND -ge 1 ] && optind=$(expr $OPTIND - 1 ) || optind=$OPTIND
@@ -51,6 +54,7 @@ while getopts 'vq:d:t:e:h-' OPTION ; do
              --quiet     ) VERBOSE=false            ;;
              --dest      ) DEST="${OPTARG}"         ;;
              --tag       ) RELEASE_TAG="${OPTARG}"  ;;
+             --get-url   ) GET_URL=true             ;;
              --extract   ) EXTRACT="${OPTARG}"      ;;
              --help      ) usage                    ;;
              --version   ) version                  ;;
@@ -107,6 +111,7 @@ if  [ ! ${RELEASE_STATUS} -eq 0 ]; then
     print ${LATEST_URL}
     exit 1
 fi
+RELEASE_URLS=$(echo "${RELEASES}" | grep "browser_download_url" | cut -d '"' -f 4)
 
 OS=$(uname -s)
 ARCH=$(uname -m)
@@ -119,6 +124,8 @@ ARCH_X64_RE="amd64|x64|x86_64"
 ARCH_X32_RE="i?386|x32|i?686"
 ARCH_A64_RE="arm64|aarch|armv8"
 ARCH_A32_RE="armv"
+ARCH_ARM6_RE="armv6"
+ARCH_ARM7_RE="armv7"
 
 if [[ $OS =~ $OS_LINUX_RE ]]; then
     OS_RE=$OS_LINUX_RE
@@ -132,25 +139,36 @@ elif [[ $ARCH =~ $ARCH_X32_RE ]]; then
     ARCH_RE=$ARCH_X32_RE
 elif [[ $ARCH =~ $ARCH_A64_RE ]]; then
     ARCH_RE=$ARCH_A64_RE
+elif [[ $ARCH =~ $ARCH_ARM6_RE ]]; then
+    ARCH_RE=$ARCH_ARM6_RE
 elif [[ $ARCH =~ $ARCH_A32_RE ]]; then
     ARCH_RE=$ARCH_A32_RE
 fi
 
 SEARCH_RE=".*(${OS_RE}).*(${ARCH_RE}).*"
 
-DOWNLOAD_URL=$(echo "${RELEASES}" | grep "browser_download_url" | grep -iE "${SEARCH_RE}" | cut -d '"' -f 4)
+DOWNLOAD_URL=$(echo "${RELEASE_URLS}" | grep -iE "${SEARCH_RE}")
 
 # check if any url was found or if more then one was found
 DL_URL_COUNT=$(printf "%s" "${DOWNLOAD_URL}" | grep -c "^")
-if [ ${DL_URL_COUNT} -eq 0 ]; then
-    perr "No matching releases were found ($OS/$ARCH)"
-    exit 2
-elif [ ${DL_URL_COUNT} -gt 1 ]; then
+if [ ${DL_URL_COUNT} -gt 1 ] && [[ $ARCH =~ $ARCH_ARM7_RE ]]; then
+    DOWNLOAD_URL=$(echo "${DOWNLOAD_URL}" | grep -iE "v7")
+    DL_URL_COUNT=$(printf "%s" "${DOWNLOAD_URL}" | grep -c "^")
+fi
+if [ ${DL_URL_COUNT} -gt 1 ]; then
     perr "Too many matching releases ($OS/$ARCH)"
     exit 3
+elif [ ${DL_URL_COUNT} -eq 0 ]; then
+    perr "No matching releases were found ($OS/$ARCH)"
+    exit 2
 fi
 
-print "Found ${DL_URL_COUNT} matching download(s) at ${DOWNLOAD_URL}"
+if ${GET_URL} ; then
+    print ${DOWNLOAD_URL}
+    exit
+else
+    print "Found ${DL_URL_COUNT} matching download(s) at ${DOWNLOAD_URL}"
+fi
 
 if [ ! -z "${EXTRACT}" ]; then
     TMP=$(${MKTMP} -d)
