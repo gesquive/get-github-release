@@ -116,6 +116,8 @@ RELEASE_URLS=$(echo "${RELEASES}" | grep "browser_download_url" | cut -d '"' -f 
 OS=$(uname -s)
 ARCH=$(uname -m)
 
+PKG_RE="tar.bz|tar.bz2|tar.gz|tar.xz|lzma|pxz|tar|tbz|tbz2|tz2|tgz|txz|xz|zip|7z"
+
 OS_DARWIN_RE="darwin|osx|mac"
 OS_LINUX_RE="linux"
 
@@ -146,6 +148,9 @@ elif [[ $ARCH =~ $ARCH_A32_RE ]]; then
 fi
 
 SEARCH_RE=".*(${OS_RE}).*(${ARCH_RE}).*"
+if [ ! -z "${EXTRACT}" ]; then
+    SEARCH_RE="${SEARCH_RE}(${PKG_RE})$"
+fi
 
 DOWNLOAD_URL=$(echo "${RELEASE_URLS}" | grep -iE "${SEARCH_RE}")
 
