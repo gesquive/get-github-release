@@ -4,7 +4,7 @@
 
 shopt -s nocasematch
 
-VERSION="v1.0.3"
+VERSION="v1.0.4"
 VERBOSE=true
 DEST="."
 RELEASE_TAG="latest"
